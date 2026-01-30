@@ -3,856 +3,437 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gantt Project Manager</title>
+    <title>ProGantt Enterprise v4</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --p-color: #6366f1;
+            --p-dark: #4f46e5;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+            --bg-app: #f1f5f9;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #1e293b;
         }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg-app); color: var(--text-primary); padding: 20px; }
 
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            overflow: hidden;
-        }
+        .app-container { max-width: 1800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-
-        .controls {
-            padding: 20px 30px;
-            background: #f8f9fa;
-            border-bottom: 2px solid #e9ecef;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #218838;
-            transform: translateY(-2px);
-        }
-
-        .btn-info {
-            background: #17a2b8;
-            color: white;
-        }
-
-        .btn-info:hover {
-            background: #138496;
-            transform: translateY(-2px);
-        }
-
-        .btn-warning {
-            background: #ffc107;
-            color: #212529;
-        }
-
-        .btn-warning:hover {
-            background: #e0a800;
-            transform: translateY(-2px);
-        }
-
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 20px;
-            padding: 30px;
-        }
-
-        .sidebar {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            height: fit-content;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 10px;
-            border: 2px solid #e9ecef;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .gantt-container {
-            background: white;
-            border-radius: 10px;
-            overflow-x: auto;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .gantt-header {
-            display: flex;
-            background: #495057;
-            color: white;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .gantt-cell {
-            padding: 12px;
-            border: 1px solid #dee2e6;
-            font-size: 13px;
-        }
-
-        .task-name-col {
-            width: 200px;
-            min-width: 200px;
-        }
-
-        .resource-col {
-            width: 150px;
-            min-width: 150px;
-        }
-
-        .date-col {
-            width: 110px;
-            min-width: 110px;
-        }
-
-        .duration-col {
-            width: 80px;
-            min-width: 80px;
-        }
-
-        .cost-col {
-            width: 100px;
-            min-width: 100px;
-        }
-
-        .timeline-col {
-            width: 800px;
-            min-width: 800px;
-        }
-
-        .gantt-row {
-            display: flex;
-            background: white;
-            transition: background-color 0.2s;
-        }
-
-        .gantt-row:hover {
-            background: #f8f9fa;
-        }
-
-        .gantt-row.milestone {
-            background: #fff3cd;
-        }
-
-        .timeline-cell {
-            position: relative;
-            height: 40px;
-        }
-
-        .task-bar {
-            position: absolute;
-            height: 24px;
-            top: 8px;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            padding: 0 8px;
-            color: white;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .task-bar:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
-        .task-bar.normal {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .task-bar.milestone {
-            background: #ffc107;
-            color: #212529;
-            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-            width: 24px !important;
-            padding: 0;
-            justify-content: center;
-        }
-
-        .summary {
-            margin-top: 20px;
-            padding: 20px;
-            background: #e7f3ff;
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
-        }
-
-        .summary h3 {
-            margin-bottom: 15px;
-            color: #333;
-        }
-
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .summary-item {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .summary-item label {
-            font-weight: 600;
-            color: #666;
-            font-size: 12px;
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .summary-item value {
-            font-size: 24px;
-            font-weight: 700;
-            color: #667eea;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            animation: fadeIn 0.3s;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .modal-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 30px;
-            border-radius: 15px;
-            width: 90%;
-            max-width: 600px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            animation: slideDown 0.3s;
-        }
-
-        @keyframes slideDown {
-            from {
-                transform: translateY(-50px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: color 0.3s;
-        }
-
-        .close:hover {
-            color: #000;
-        }
-
-        .task-list {
-            margin-top: 20px;
-        }
-
-        .task-item {
-            padding: 10px;
-            background: white;
-            margin-bottom: 8px;
-            border-radius: 6px;
-            border-left: 4px solid #667eea;
+        /* Header e Top Bar */
+        .top-bar {
+            background: var(--card-bg);
+            padding: 15px 25px;
+            border-radius: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
         }
 
-        .task-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 5px;
         }
 
-        .task-item.milestone {
-            border-left-color: #ffc107;
+        .stat-card {
+            background: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            text-align: center;
         }
+        .stat-card span { font-size: 0.7rem; color: #64748b; font-weight: 700; text-transform: uppercase; }
+        .stat-card p { font-size: 1.1rem; font-weight: 800; color: var(--p-color); }
 
-        .delete-btn {
-            background: #dc3545;
-            color: white;
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 10px;
             border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
+            font-weight: 600;
             cursor: pointer;
-            font-size: 12px;
-        }
-
-        .delete-btn:hover {
-            background: #c82333;
-        }
-
-        input[type="file"] {
-            display: none;
-        }
-
-        .checkbox-group {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 8px;
+            transition: 0.2s;
+            font-size: 14px;
+        }
+        .btn-p { background: var(--p-color); color: white; }
+        .btn-p:hover { background: var(--p-dark); transform: translateY(-1px); }
+        .btn-outline { background: white; border: 1px solid var(--border-color); color: var(--text-primary); }
+        .btn-outline:hover { background: #f8fafc; }
+        .btn-zoom { background: #fff; border: 1px solid var(--border-color); width: 36px; height: 36px; justify-content: center; }
+
+        /* Layout */
+        .main-layout { display: grid; grid-template-columns: 350px 1fr; gap: 20px; align-items: start; }
+
+        /* Sidebar */
+        .sidebar { background: var(--card-bg); border-radius: 16px; padding: 20px; border: 1px solid var(--border-color); max-height: 75vh; overflow-y: auto; }
+        .task-list-item {
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .task-list-item:hover { border-color: var(--p-color); }
+        .task-list-item.conflict { border-left: 4px solid var(--danger); background: #fff1f2; }
+
+        /* Gantt Box */
+        .gantt-box {
+            background: var(--card-bg);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .gantt-viewport { overflow-x: auto; position: relative; }
+        .gantt-grid-header { display: flex; background: #f8fafc; border-bottom: 2px solid var(--border-color); }
+        .day-cell {
+            flex-shrink: 0;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 700;
+            border-right: 1px solid #e2e8f0;
+            padding: 8px 0;
+            color: #64748b;
         }
 
-        .checkbox-group input[type="checkbox"] {
-            width: auto;
-            margin: 0;
-        }
-
-        @media (max-width: 1200px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .legend {
-            margin-top: 15px;
-            padding: 15px;
-            background: white;
+        .gantt-body { position: relative; min-height: 450px; background-image: linear-gradient(to right, #f1f5f9 1px, transparent 1px); }
+        .gantt-row { display: flex; height: 55px; border-bottom: 1px solid #f1f5f9; position: relative; align-items: center; }
+        
+        /* Task Bars */
+        .task-bar {
+            position: absolute;
+            height: 34px;
+            background: linear-gradient(135deg, #6366f1, #818cf8);
             border-radius: 8px;
-            border: 2px solid #e9ecef;
-        }
-
-        .legend h4 {
-            margin-bottom: 10px;
-            color: #333;
-        }
-
-        .legend-items {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .legend-item {
+            z-index: 10;
+            cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
+            padding: 0 12px;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .task-bar.conflict { background: linear-gradient(135deg, #ef4444, #f43f5e) !important; }
+
+        .today-line {
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 2px;
+            background: var(--danger);
+            z-index: 50;
+            pointer-events: none;
         }
 
-        .legend-color {
-            width: 30px;
-            height: 20px;
-            border-radius: 4px;
-        }
-
-        .legend-color.task {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .legend-color.milestone {
-            background: #ffc107;
-            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-        }
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left:0; top:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter: blur(4px); }
+        .modal-content { background: white; margin: 50px auto; padding: 25px; border-radius: 20px; width: 500px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+        input { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; }
+        label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>📊 Gantt Project Manager</h1>
-            <p>Gestione completa di progetti con risorse, tempi e costi</p>
-        </div>
 
-        <div class="controls">
-            <button class="btn btn-primary" onclick="openModal()">➕ Aggiungi Task</button>
-            <button class="btn btn-success" onclick="saveProject()">💾 Salva Progetto</button>
-            <button class="btn btn-info" onclick="document.getElementById('fileInput').click()">📂 Carica Progetto</button>
-            <button class="btn btn-warning" onclick="exportToCSV()">📥 Esporta CSV</button>
-            <input type="file" id="fileInput" accept=".json" onchange="loadProject(event)">
-        </div>
-
-        <div class="main-content">
-            <div class="sidebar">
-                <h3 style="margin-bottom: 20px; color: #333;">📋 Task Attivi</h3>
-                <div class="task-list" id="taskList"></div>
-
-                <div class="legend">
-                    <h4>Legenda</h4>
-                    <div class="legend-items">
-                        <div class="legend-item">
-                            <div class="legend-color task"></div>
-                            <span>Task Normale</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color milestone"></div>
-                            <span>Milestone</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="summary">
-                    <h3>📈 Riepilogo Progetto</h3>
-                    <div class="summary-grid">
-                        <div class="summary-item">
-                            <label>Totale Task</label>
-                            <value id="totalTasks">0</value>
-                        </div>
-                        <div class="summary-item">
-                            <label>Durata Totale</label>
-                            <value id="totalDuration">0 giorni</value>
-                        </div>
-                        <div class="summary-item">
-                            <label>Costo Totale</label>
-                            <value id="totalCost">€0</value>
-                        </div>
-                        <div class="summary-item">
-                            <label>Milestone</label>
-                            <value id="totalMilestones">0</value>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="gantt-container">
-                <div id="ganttChart"></div>
-            </div>
-        </div>
+<div class="app-container">
+    <div class="stats-bar">
+        <div class="stat-card"><span>Budget Totale</span><p id="stat-cost">€0</p></div>
+        <div class="stat-card"><span>Attività</span><p id="stat-tasks">0</p></div>
+        <div class="stat-card"><span>Risorse Attive</span><p id="stat-resources">0</p></div>
+        <div class="stat-card"><span>Conflitti Ore</span><p id="stat-conflicts" style="color:var(--danger)">0</p></div>
     </div>
 
-    <!-- Modal per aggiungere task -->
-    <div id="taskModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2 style="margin-bottom: 20px; color: #333;">Nuovo Task</h2>
-            
-            <div class="form-group">
-                <label>Nome Task *</label>
-                <input type="text" id="taskName" placeholder="Es: Analisi dei requisiti">
+    <header class="top-bar">
+        <div>
+            <h1 style="font-size: 1.25rem;"><i class="fas fa-layer-group" style="color:var(--p-color)"></i> ProGantt Enterprise</h1>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <div style="display: flex; background: #f1f5f9; padding: 4px; border-radius: 10px; gap: 4px; margin-right: 15px;">
+                <button class="btn btn-zoom" onclick="changeZoom(-10)"><i class="fas fa-minus"></i></button>
+                <button class="btn btn-zoom" onclick="changeZoom(10)"><i class="fas fa-plus"></i></button>
             </div>
+            <button class="btn btn-p" onclick="openModal()"><i class="fas fa-plus"></i> Nuovo Task</button>
+            <button class="btn btn-outline" onclick="exportToFile()"><i class="fas fa-file-export"></i> Salva File</button>
+            <button class="btn btn-outline" onclick="document.getElementById('importFile').click()"><i class="fas fa-file-import"></i> Carica</button>
+            <input type="file" id="importFile" hidden onchange="importFromFile(event)">
+        </div>
+    </header>
 
-            <div class="form-group">
-                <label>Risorsa Assegnata</label>
-                <input type="text" id="taskResource" placeholder="Es: Mario Rossi">
+    <div class="main-layout">
+        <aside class="sidebar" id="task-sidebar"></aside>
+        <section class="gantt-box">
+            <div class="gantt-viewport" id="gantt-viewport">
+                <div class="gantt-grid-header" id="gantt-header"></div>
+                <div class="gantt-body" id="gantt-body"></div>
             </div>
+        </section>
+    </div>
+</div>
 
-            <div class="form-group">
-                <label>Data Inizio *</label>
-                <input type="date" id="taskStartDate">
+<div id="taskModal" class="modal">
+    <div class="modal-content">
+        <h2 id="modal-title" style="margin-bottom: 15px;">Dettaglio Attività</h2>
+        <input type="hidden" id="task-id">
+        <div class="form-grid">
+            <div style="grid-column: span 2;">
+                <label>Nome Task</label>
+                <input type="text" id="task-name">
             </div>
-
-            <div class="form-group">
-                <label>Data Fine *</label>
-                <input type="date" id="taskEndDate">
+            <div>
+                <label>Inizio</label>
+                <input type="date" id="task-start">
             </div>
-
-            <div class="form-group">
-                <label>Costo (€)</label>
-                <input type="number" id="taskCost" placeholder="0" min="0" step="0.01">
+            <div>
+                <label>Fine</label>
+                <input type="date" id="task-end">
             </div>
-
-            <div class="form-group">
-                <label>Descrizione</label>
-                <textarea id="taskDescription" rows="3" placeholder="Descrizione dettagliata del task..."></textarea>
+            <div>
+                <label>Risorsa</label>
+                <input type="text" id="task-resource">
             </div>
-
-            <div class="form-group checkbox-group">
-                <input type="checkbox" id="taskMilestone">
-                <label for="taskMilestone">Questo è un Milestone</label>
+            <div>
+                <label>Ore/Giorno</label>
+                <input type="number" id="task-hours" value="4">
             </div>
-
-            <button class="btn btn-primary" onclick="addTask()" style="width: 100%; margin-top: 15px;">
-                Aggiungi Task
-            </button>
+            <div>
+                <label>Costo Stimato (€)</label>
+                <input type="number" id="task-cost" value="0">
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn btn-p" style="flex:1" onclick="saveTask()">Salva</button>
+            <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Annulla</button>
+            <button id="del-btn" class="btn" style="background:var(--danger); color:white; display:none" onclick="deleteTask()">Elimina</button>
         </div>
     </div>
+</div>
 
-    <script>
-        let tasks = [];
-        let projectStartDate = null;
-        let projectEndDate = null;
+<script>
+    let tasks = [];
+    let zoomLevel = 50; // pixel per giorno
+    const projectStart = new Date();
+    projectStart.setDate(projectStart.getDate() - 5);
 
-        // Imposta data di oggi come default
-        document.addEventListener('DOMContentLoaded', function() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('taskStartDate').value = today;
+    function init() {
+        const saved = localStorage.getItem('gantt_v4_data');
+        if(saved) {
+            tasks = JSON.parse(saved).map(t => ({
+                ...t, startDate: new Date(t.startDate), endDate: new Date(t.endDate)
+            }));
+        }
+        renderAll();
+    }
+
+    function changeZoom(delta) {
+        zoomLevel = Math.max(20, Math.min(150, zoomLevel + delta));
+        renderAll();
+    }
+
+    // --- LOGICA FILE SYSTEM ---
+    function exportToFile() {
+        const dataStr = JSON.stringify(tasks, null, 2);
+        const blob = new Blob([dataStr], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Project_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+    }
+
+    function importFromFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const imported = JSON.parse(e.target.result);
+                tasks = imported.map(t => ({
+                    ...t, startDate: new Date(t.startDate), endDate: new Date(t.endDate)
+                }));
+                localStorage.setItem('gantt_v4_data', JSON.stringify(tasks));
+                renderAll();
+                alert("Progetto caricato con successo!");
+            } catch (err) {
+                alert("Errore nel caricamento del file.");
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // --- GESTIONE TASK ---
+    function openModal(id = null) {
+        const modal = document.getElementById('taskModal');
+        const delBtn = document.getElementById('del-btn');
+        if(id) {
+            const t = tasks.find(x => x.id === id);
+            document.getElementById('task-id').value = t.id;
+            document.getElementById('task-name').value = t.name;
+            document.getElementById('task-start').value = t.startDate.toISOString().split('T')[0];
+            document.getElementById('task-end').value = t.endDate.toISOString().split('T')[0];
+            document.getElementById('task-resource').value = t.resource;
+            document.getElementById('task-hours').value = t.hoursPerDay;
+            document.getElementById('task-cost').value = t.cost;
+            delBtn.style.display = 'block';
+        } else {
+            document.getElementById('task-id').value = "";
+            document.getElementById('task-name').value = "";
+            delBtn.style.display = 'none';
+        }
+        modal.style.display = 'block';
+    }
+
+    function closeModal() { document.getElementById('taskModal').style.display = 'none'; }
+
+    function saveTask() {
+        const id = document.getElementById('task-id').value;
+        const newTask = {
+            id: id ? parseInt(id) : Date.now(),
+            name: document.getElementById('task-name').value || "Nuovo Task",
+            startDate: new Date(document.getElementById('task-start').value),
+            endDate: new Date(document.getElementById('task-end').value),
+            resource: document.getElementById('task-resource').value || "Senza Risorsa",
+            hoursPerDay: parseFloat(document.getElementById('task-hours').value) || 0,
+            cost: parseFloat(document.getElementById('task-cost').value) || 0
+        };
+
+        if(id) {
+            const idx = tasks.findIndex(x => x.id === parseInt(id));
+            tasks[idx] = newTask;
+        } else {
+            tasks.push(newTask);
+        }
+        
+        localStorage.setItem('gantt_v4_data', JSON.stringify(tasks));
+        closeModal();
+        renderAll();
+    }
+
+    function deleteTask() {
+        const id = parseInt(document.getElementById('task-id').value);
+        tasks = tasks.filter(t => t.id !== id);
+        localStorage.setItem('gantt_v4_data', JSON.stringify(tasks));
+        closeModal();
+        renderAll();
+    }
+
+    // --- RENDERING & LOGICA CONFLITTI ---
+    function renderAll() {
+        const conflicts = calculateConflicts();
+        const header = document.getElementById('gantt-header');
+        const body = document.getElementById('gantt-body');
+        const sidebar = document.getElementById('task-sidebar');
+
+        let maxDate = new Date();
+        maxDate.setDate(maxDate.getDate() + 30);
+        if(tasks.length > 0) {
+            const actualMax = new Date(Math.max(...tasks.map(t => t.endDate)));
+            actualMax.setDate(actualMax.getDate() + 10);
+            maxDate = actualMax;
+        }
+
+        const totalDays = Math.ceil((maxDate - projectStart) / 86400000);
+        header.style.width = body.style.width = (totalDays * zoomLevel) + 'px';
+
+        // Header Giorni
+        header.innerHTML = "";
+        for(let i=0; i<totalDays; i++){
+            const d = new Date(projectStart); d.setDate(d.getDate() + i);
+            const cell = document.createElement('div');
+            cell.className = 'day-cell';
+            cell.style.width = zoomLevel + 'px';
+            cell.innerHTML = `${d.getDate()}<br>${d.toLocaleDateString('it-IT',{weekday:'short'})}`;
+            header.appendChild(cell);
+        }
+
+        // Sidebar & Body
+        sidebar.innerHTML = "<h3 style='margin-bottom:15px'>Elenco Attività</h3>";
+        body.innerHTML = "";
+
+        // Linea Oggi
+        const todayOffset = Math.floor((new Date() - projectStart) / 86400000) * zoomLevel;
+        body.innerHTML += `<div class="today-line" style="left:${todayOffset}px"></div>`;
+
+        let totCost = 0;
+        let resSet = new Set();
+
+        tasks.sort((a,b) => a.startDate - b.startDate).forEach(t => {
+            totCost += t.cost;
+            resSet.add(t.resource);
+            const isConflict = conflicts.has(t.id);
+
+            // Sidebar Item
+            sidebar.innerHTML += `
+                <div class="task-list-item ${isConflict ? 'conflict' : ''}" onclick="openModal(${t.id})">
+                    <div style="display:flex; justify-content:space-between; font-weight:700">
+                        <span>${t.name}</span>
+                        <span>€${t.cost}</span>
+                    </div>
+                    <div style="font-size:11px; color:#64748b; margin-top:4px">
+                        ${t.resource} • ${t.hoursPerDay}h/gg
+                        ${isConflict ? '<span style="color:var(--danger); display:block">⚠ Sovraccarico</span>' : ''}
+                    </div>
+                </div>`;
+
+            // Gantt Row
+            const row = document.createElement('div');
+            row.className = 'gantt-row';
+            const left = Math.floor((t.startDate - projectStart) / 86400000) * zoomLevel;
+            const width = (Math.ceil((t.endDate - t.startDate) / 86400000) + 1) * zoomLevel;
             
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            document.getElementById('taskEndDate').value = tomorrow.toISOString().split('T')[0];
-            
-            renderGantt();
+            row.innerHTML = `<div class="task-bar ${isConflict ? 'conflict' : ''}" 
+                                style="left:${left}px; width:${width}px" 
+                                onclick="openModal(${t.id})">${t.name}</div>`;
+            body.appendChild(row);
         });
 
-        function openModal() {
-            document.getElementById('taskModal').style.display = 'block';
-        }
+        document.getElementById('stat-cost').innerText = `€${totCost.toLocaleString()}`;
+        document.getElementById('stat-tasks').innerText = tasks.length;
+        document.getElementById('stat-resources').innerText = resSet.size;
+        document.getElementById('stat-conflicts').innerText = conflicts.size;
+    }
 
-        function closeModal() {
-            document.getElementById('taskModal').style.display = 'none';
-            clearForm();
-        }
-
-        function clearForm() {
-            document.getElementById('taskName').value = '';
-            document.getElementById('taskResource').value = '';
-            document.getElementById('taskCost').value = '';
-            document.getElementById('taskDescription').value = '';
-            document.getElementById('taskMilestone').checked = false;
-            
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('taskStartDate').value = today;
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            document.getElementById('taskEndDate').value = tomorrow.toISOString().split('T')[0];
-        }
-
-        function addTask() {
-            const name = document.getElementById('taskName').value;
-            const resource = document.getElementById('taskResource').value;
-            const startDate = document.getElementById('taskStartDate').value;
-            const endDate = document.getElementById('taskEndDate').value;
-            const cost = parseFloat(document.getElementById('taskCost').value) || 0;
-            const description = document.getElementById('taskDescription').value;
-            const isMilestone = document.getElementById('taskMilestone').checked;
-
-            if (!name || !startDate || !endDate) {
-                alert('Per favore compila tutti i campi obbligatori (*)');
-                return;
+    function calculateConflicts() {
+        const dayMap = {};
+        const conflictIds = new Set();
+        tasks.forEach(t => {
+            let curr = new Date(t.startDate);
+            while(curr <= t.endDate) {
+                const k = curr.toISOString().split('T')[0] + t.resource;
+                dayMap[k] = (dayMap[k] || 0) + t.hoursPerDay;
+                if(dayMap[k] > 8) conflictIds.add(t.id);
+                curr.setDate(curr.getDate() + 1);
             }
-
-            if (new Date(endDate) < new Date(startDate)) {
-                alert('La data di fine deve essere successiva alla data di inizio');
-                return;
+        });
+        // Una seconda passata per marcare tutti i task coinvolti nel conflitto
+        tasks.forEach(t => {
+            let curr = new Date(t.startDate);
+            while(curr <= t.endDate) {
+                const k = curr.toISOString().split('T')[0] + t.resource;
+                if(dayMap[k] > 8) conflictIds.add(t.id);
+                curr.setDate(curr.getDate() + 1);
             }
+        });
+        return conflictIds;
+    }
 
-            const task = {
-                id: Date.now(),
-                name,
-                resource,
-                startDate: new Date(startDate),
-                endDate: new Date(endDate),
-                cost,
-                description,
-                isMilestone,
-                duration: calculateDuration(new Date(startDate), new Date(endDate))
-            };
-
-            tasks.push(task);
-            updateProjectDates();
-            renderGantt();
-            updateSummary();
-            updateTaskList();
-            closeModal();
-        }
-
-        function deleteTask(id) {
-            if (confirm('Sei sicuro di voler eliminare questo task?')) {
-                tasks = tasks.filter(t => t.id !== id);
-                updateProjectDates();
-                renderGantt();
-                updateSummary();
-                updateTaskList();
-            }
-        }
-
-        function calculateDuration(start, end) {
-            const diffTime = Math.abs(end - start);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays;
-        }
-
-        function updateProjectDates() {
-            if (tasks.length === 0) {
-                projectStartDate = null;
-                projectEndDate = null;
-                return;
-            }
-
-            projectStartDate = new Date(Math.min(...tasks.map(t => t.startDate)));
-            projectEndDate = new Date(Math.max(...tasks.map(t => t.endDate)));
-        }
-
-        function renderGantt() {
-            const container = document.getElementById('ganttChart');
-            
-            if (tasks.length === 0) {
-                container.innerHTML = '<div style="padding: 40px; text-align: center; color: #666;"><h3>Nessun task presente</h3><p>Clicca su "Aggiungi Task" per iniziare</p></div>';
-                return;
-            }
-
-            updateProjectDates();
-            
-            const totalDays = calculateDuration(projectStartDate, projectEndDate) + 1;
-            const dayWidth = 800 / totalDays;
-
-            let html = '<div class="gantt-header">';
-            html += '<div class="gantt-cell task-name-col">Task</div>';
-            html += '<div class="gantt-cell resource-col">Risorsa</div>';
-            html += '<div class="gantt-cell date-col">Inizio</div>';
-            html += '<div class="gantt-cell date-col">Fine</div>';
-            html += '<div class="gantt-cell duration-col">Durata</div>';
-            html += '<div class="gantt-cell cost-col">Costo</div>';
-            html += '<div class="gantt-cell timeline-col">Timeline</div>';
-            html += '</div>';
-
-            // Ordina i task per data di inizio
-            const sortedTasks = [...tasks].sort((a, b) => a.startDate - b.startDate);
-
-            sortedTasks.forEach(task => {
-                const rowClass = task.isMilestone ? 'gantt-row milestone' : 'gantt-row';
-                html += `<div class="${rowClass}">`;
-                html += `<div class="gantt-cell task-name-col">${task.name}</div>`;
-                html += `<div class="gantt-cell resource-col">${task.resource || '-'}</div>`;
-                html += `<div class="gantt-cell date-col">${formatDate(task.startDate)}</div>`;
-                html += `<div class="gantt-cell date-col">${formatDate(task.endDate)}</div>`;
-                html += `<div class="gantt-cell duration-col">${task.duration}g</div>`;
-                html += `<div class="gantt-cell cost-col">€${task.cost.toFixed(2)}</div>`;
-                html += `<div class="gantt-cell timeline-col"><div class="timeline-cell">`;
-                
-                const startOffset = calculateDuration(projectStartDate, task.startDate);
-                const barWidth = task.isMilestone ? 24 : task.duration * dayWidth;
-                const left = startOffset * dayWidth;
-                
-                const barClass = task.isMilestone ? 'task-bar milestone' : 'task-bar normal';
-                const barTitle = task.isMilestone ? '◆' : task.name;
-                
-                html += `<div class="${barClass}" style="left: ${left}px; width: ${barWidth}px;" title="${task.name}
-${task.description || ''}
-Durata: ${task.duration} giorni
-Costo: €${task.cost}">${barTitle}</div>`;
-                
-                html += '</div></div>';
-                html += '</div>';
-            });
-
-            container.innerHTML = html;
-        }
-
-        function updateSummary() {
-            document.getElementById('totalTasks').textContent = tasks.length;
-            
-            const totalDays = projectStartDate && projectEndDate ? 
-                calculateDuration(projectStartDate, projectEndDate) : 0;
-            document.getElementById('totalDuration').textContent = totalDays + ' giorni';
-            
-            const totalCost = tasks.reduce((sum, task) => sum + task.cost, 0);
-            document.getElementById('totalCost').textContent = '€' + totalCost.toFixed(2);
-            
-            const milestoneCount = tasks.filter(t => t.isMilestone).length;
-            document.getElementById('totalMilestones').textContent = milestoneCount;
-        }
-
-        function updateTaskList() {
-            const list = document.getElementById('taskList');
-            
-            if (tasks.length === 0) {
-                list.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">Nessun task</p>';
-                return;
-            }
-
-            const sortedTasks = [...tasks].sort((a, b) => a.startDate - b.startDate);
-            
-            let html = '';
-            sortedTasks.forEach(task => {
-                const itemClass = task.isMilestone ? 'task-item milestone' : 'task-item';
-                html += `<div class="${itemClass}">`;
-                html += `<div>`;
-                html += `<strong>${task.name}</strong><br>`;
-                html += `<small style="color: #666;">${task.resource || 'Nessuna risorsa'} • ${task.duration}g • €${task.cost.toFixed(2)}</small>`;
-                html += `</div>`;
-                html += `<button class="delete-btn" onclick="deleteTask(${task.id})">🗑️</button>`;
-                html += `</div>`;
-            });
-            
-            list.innerHTML = html;
-        }
-
-        function formatDate(date) {
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            return `${day}/${month}/${year}`;
-        }
-
-        function saveProject() {
-            if (tasks.length === 0) {
-                alert('Non ci sono task da salvare!');
-                return;
-            }
-
-            const project = {
-                name: 'Progetto Gantt',
-                createdDate: new Date(),
-                tasks: tasks.map(t => ({
-                    ...t,
-                    startDate: t.startDate.toISOString(),
-                    endDate: t.endDate.toISOString()
-                }))
-            };
-
-            const dataStr = JSON.stringify(project, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(dataBlob);
-            link.download = `gantt_project_${Date.now()}.json`;
-            link.click();
-            
-            alert('Progetto salvato con successo!');
-        }
-
-        function loadProject(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const project = JSON.parse(e.target.result);
-                    tasks = project.tasks.map(t => ({
-                        ...t,
-                        startDate: new Date(t.startDate),
-                        endDate: new Date(t.endDate)
-                    }));
-                    
-                    updateProjectDates();
-                    renderGantt();
-                    updateSummary();
-                    updateTaskList();
-                    
-                    alert('Progetto caricato con successo!');
-                } catch (error) {
-                    alert('Errore nel caricamento del file: ' + error.message);
-                }
-            };
-            reader.readAsText(file);
-            
-            // Reset input
-            event.target.value = '';
-        }
-
-        function exportToCSV() {
-            if (tasks.length === 0) {
-                alert('Non ci sono task da esportare!');
-                return;
-            }
-
-            let csv = 'Nome,Risorsa,Data Inizio,Data Fine,Durata (giorni),Costo (€),Milestone,Descrizione\n';
-            
-            tasks.forEach(task => {
-                csv += `"${task.name}",`;
-                csv += `"${task.resource || ''}",`;
-                csv += `"${formatDate(task.startDate)}",`;
-                csv += `"${formatDate(task.endDate)}",`;
-                csv += `${task.duration},`;
-                csv += `${task.cost.toFixed(2)},`;
-                csv += `"${task.isMilestone ? 'Sì' : 'No'}",`;
-                csv += `"${task.description || ''}"\n`;
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `gantt_export_${Date.now()}.csv`;
-            link.click();
-            
-            alert('Esportazione CSV completata!');
-        }
-
-        // Chiudi modal cliccando fuori
-        window.onclick = function(event) {
-            const modal = document.getElementById('taskModal');
-            if (event.target == modal) {
-                closeModal();
-            }
-        }
-    </script>
+    init();
+    window.onclick = (e) => { if(e.target.className === 'modal') closeModal(); }
+</script>
 </body>
 </html>

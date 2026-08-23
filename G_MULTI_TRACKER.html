@@ -78,6 +78,7 @@
     transform: translateY(-1px);
   }
   .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   .btn-primary {
     background: linear-gradient(135deg, var(--accent) 0%, var(--accent-3) 100%);
     color: #0a0807;
@@ -231,6 +232,7 @@
   .icon-btn:hover { border-color: var(--border-strong); color: var(--text); }
   .icon-btn.active.mute { background: var(--red); color: #fff; border-color: var(--red); }
   .icon-btn.active.solo { background: var(--accent-2); color: #0a0807; border-color: var(--accent-2); }
+  .icon-btn.active.nrm { background: var(--green); color: #0a0807; border-color: var(--green); box-shadow: 0 0 12px rgba(74, 222, 128, 0.4); }
   .icon-btn.arm { color: var(--red); border-color: rgba(255, 77, 77, 0.4); }
   .icon-btn.arm.armed { background: var(--red); color: #fff; border-color: var(--red); box-shadow: 0 0 12px rgba(255, 77, 77, 0.6); }
   .icon-btn.delete:hover { background: rgba(255, 77, 77, 0.15); border-color: var(--red); color: var(--red); }
@@ -399,6 +401,11 @@
     box-shadow: 0 0 12px var(--red);
     animation: pulse-dot 0.8s ease-in-out infinite;
   }
+  .status-dot.countdown {
+    background: var(--accent-2);
+    box-shadow: 0 0 12px var(--accent-2);
+    animation: pulse-dot 0.5s ease-in-out infinite;
+  }
   .bg-blob {
     position: fixed;
     border-radius: 50%;
@@ -423,12 +430,56 @@
     0%, 100% { transform: translate(0, 0); }
     50% { transform: translate(80px, 40px); }
   }
-  .icon-btn-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  
+  /* Countdown Overlay */
+  #countdownOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    background: radial-gradient(circle, rgba(10,8,7,0.8) 0%, rgba(10,8,7,0.95) 100%);
+    backdrop-filter: blur(6px);
+  }
+  #countdownOverlay.active { opacity: 1; }
+  #countdownNumber {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 900;
+    font-size: 180px;
+    line-height: 1;
+    color: var(--accent-2);
+    text-shadow: 0 0 60px var(--accent), 0 0 120px var(--accent-3);
+  }
+  #countdownNumber.pop { animation: count-pop 1s ease-out forwards; }
+  @keyframes count-pop {
+    0% { transform: scale(0.4); opacity: 0; }
+    20% { transform: scale(1.3); opacity: 1; }
+    80% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+  .countdown-label {
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4em;
+    color: var(--text);
+    opacity: 0.8;
+  }
 </style>
 </head>
 <body>
   <div class="bg-blob bg-blob-1"></div>
   <div class="bg-blob bg-blob-2"></div>
+
+  <div id="countdownOverlay">
+    <div id="countdownNumber">5</div>
+    <div class="countdown-label">Inizio registrazione tra...</div>
+  </div>
 
   <div class="relative z-10 min-h-screen flex flex-col">
     <!-- HEADER -->
@@ -589,6 +640,18 @@
       return peaks;
     }
 
+    function findPeak(buffer) {
+      let peak = 0;
+      for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+        const data = buffer.getChannelData(ch);
+        for (let i = 0; i < data.length; i++) {
+          const v = Math.abs(data[i]);
+          if (v > peak) peak = v;
+        }
+      }
+      return peak;
+    }
+
     // Audio engine
     class AudioEngine {
       constructor() {
@@ -603,6 +666,8 @@
         this.analyser = null;
         this.isRecording = false;
         this.isPlaying = false;
+        this.isCountingDown = false;
+        this.countdownCancelled = false;
         this.startTime = 0;
         this.armedTrackId = null;
         this.activeSources = [];
@@ -690,6 +755,13 @@
         return this.micStream;
       }
 
+      stopMicStream() {
+        if (this.micStream) {
+          this.micStream.getTracks().forEach(t => t.stop());
+          this.micStream = null;
+        }
+      }
+
       addTrack(name) {
         const track = {
           id: 'tr-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
@@ -700,6 +772,9 @@
           volume: 0.8,
           reverbSend: 0,
           echoSend: 0,
+          noiseFilter: 0,
+          normalize: false,
+          peak: 0,
           color: TRACK_COLORS[this.tracks.length % TRACK_COLORS.length],
           peaks: null
         };
@@ -718,19 +793,175 @@
       buildTrackChain(track, ctx, master, reverbConv, echoDelay) {
         const src = ctx.createBufferSource();
         src.buffer = track.buffer;
+        
+        // Noise Filter (Highpass for rumble + Lowpass for hiss)
+        const hpFilter = ctx.createBiquadFilter();
+        hpFilter.type = 'highpass';
+        hpFilter.frequency.value = track.noiseFilter > 0 ? 20 + Math.pow(track.noiseFilter, 3) * 500 : 20;
+        
+        const lpFilter = ctx.createBiquadFilter();
+        lpFilter.type = 'lowpass';
+        lpFilter.frequency.value = track.noiseFilter > 0 ? 20000 - Math.pow(track.noiseFilter, 2) * 12000 : 20000;
+        
+        src.connect(hpFilter);
+        hpFilter.connect(lpFilter);
+        
         const gain = ctx.createGain();
-        gain.gain.value = track.muted ? 0 : track.volume;
+        // Calculate normalization gain if enabled
+        const normGain = track.normalize && track.peak > 0 ? (0.99 / track.peak) : 1;
+        gain.gain.value = track.muted ? 0 : track.volume * normGain;
+        
+        lpFilter.connect(gain);
+        
         const reverbSend = ctx.createGain();
         reverbSend.gain.value = track.reverbSend;
         const echoSend = ctx.createGain();
         echoSend.gain.value = track.echoSend;
-        src.connect(gain);
+        
         gain.connect(master);
         gain.connect(reverbSend);
         reverbSend.connect(reverbConv);
         gain.connect(echoSend);
         echoSend.connect(echoDelay);
-        return { src, gain, reverbSend, echoSend };
+        
+        return { src, gain, reverbSend, echoSend, hpFilter, lpFilter };
+      }
+
+      async startCountdown(seconds) {
+        const overlay = document.getElementById('countdownOverlay');
+        const numEl = document.getElementById('countdownNumber');
+        const startAt = this.ctx.currentTime + 0.3;
+
+        this.isCountingDown = true;
+        overlay.classList.add('active');
+
+        for (let i = 0; i < seconds; i++) {
+          this.playClick(startAt + i, true);
+        }
+
+        for (let i = 0; i < seconds; i++) {
+          const delayMs = (startAt + i - this.ctx.currentTime) * 1000;
+          setTimeout(() => {
+            if (this.countdownCancelled) return;
+            numEl.textContent = seconds - i;
+            numEl.classList.remove('pop');
+            void numEl.offsetWidth;
+            numEl.classList.add('pop');
+          }, delayMs);
+        }
+
+        const totalWaitMs = (startAt + seconds - this.ctx.currentTime) * 1000;
+        await new Promise(r => setTimeout(r, Math.max(0, totalWaitMs)));
+
+        if (this.countdownCancelled) {
+          overlay.classList.remove('active');
+          this.isCountingDown = false;
+          return false;
+        }
+
+        numEl.textContent = 'GO';
+        numEl.style.color = 'var(--red)';
+        numEl.classList.remove('pop');
+        void numEl.offsetWidth;
+        numEl.classList.add('pop');
+        
+        await new Promise(r => setTimeout(r, 400));
+        numEl.style.color = '';
+        overlay.classList.remove('active');
+        this.isCountingDown = false;
+        return true;
+      }
+
+      cancelCountdown() {
+        if (this.isCountingDown) {
+          this.countdownCancelled = true;
+        }
+      }
+
+      async startRecording() {
+        await this.init();
+        if (this.isRecording) return;
+        if (!this.armedTrackId) {
+          const t = this.addTrack();
+          this.armedTrackId = t.id;
+          ui.renderTracks();
+        }
+
+        this.countdownCancelled = false;
+
+        try {
+          await this.getMicStream();
+        } catch (err) {
+          throw new Error('Accesso al microfono negato o non disponibile');
+        }
+
+        const success = await this.startCountdown(5);
+        if (!success) {
+          this.stopMicStream();
+          return;
+        }
+
+        this.micSource = this.ctx.createMediaStreamSource(this.micStream);
+        this.monitorGain = this.ctx.createGain();
+        this.monitorGain.gain.value = this.monitorEnabled ? 0.6 : 0;
+        this.micSource.connect(this.monitorGain);
+        this.monitorGain.connect(this.masterGain);
+
+        const bufferSize = 2048;
+        this.scriptProcessor = this.ctx.createScriptProcessor(bufferSize, 1, 1);
+        this.recordChunks = [];
+        const engine = this;
+        this.scriptProcessor.onaudioprocess = function(e) {
+          const input = e.inputBuffer.getChannelData(0);
+          const copy = new Float32Array(input.length);
+          copy.set(input);
+          engine.recordChunks.push(copy);
+          const output = e.outputBuffer.getChannelData(0);
+          for (let i = 0; i < output.length; i++) output[i] = 0;
+        };
+        this.micSource.connect(this.scriptProcessor);
+        this.scriptProcessor.connect(this.ctx.destination);
+
+        this.startTime = this.ctx.currentTime;
+        this.isPlaying = true;
+        this.isRecording = true;
+        
+        const anySolo = this.tracks.some(t => t.solo);
+        this.activeSources = [];
+        this.tracks.forEach(track => {
+          if (track.id === this.armedTrackId) return;
+          if (!track.buffer || track.muted) return;
+          if (anySolo && !track.solo) return;
+          const chain = this.buildTrackChain(track, this.ctx, this.masterGain, this.reverbConvolver, this.echoDelay);
+          chain.src.start(0);
+          this.activeSources.push({ ...chain, trackId: track.id });
+        });
+        if (this.metronomeOn) this.scheduleMetronome();
+      }
+
+      stopRecording() {
+        if (!this.isRecording) return;
+        if (this.scriptProcessor) { this.scriptProcessor.disconnect(); this.scriptProcessor = null; }
+        if (this.micSource) { this.micSource.disconnect(); this.micSource = null; }
+        if (this.monitorGain) { this.monitorGain.disconnect(); this.monitorGain = null; }
+        this.stopPlayback();
+        const totalLength = this.recordChunks.reduce((s, c) => s + c.length, 0);
+        if (totalLength > 0) {
+          const buffer = this.ctx.createBuffer(1, totalLength, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          let offset = 0;
+          this.recordChunks.forEach(chunk => { data.set(chunk, offset); offset += chunk.length; });
+          const track = this.tracks.find(t => t.id === this.armedTrackId);
+          if (track) {
+            track.buffer = buffer;
+            track.peaks = computePeaks(buffer, 1200);
+            track.peak = findPeak(buffer);
+          }
+        }
+        this.recordChunks = [];
+        this.isRecording = false;
+        this.armedTrackId = null;
+        this.stopMicStream();
       }
 
       async startPlayback() {
@@ -764,75 +995,6 @@
         if (this.metronomeTimer) { clearTimeout(this.metronomeTimer); this.metronomeTimer = null; }
       }
 
-      async startRecording() {
-        await this.init();
-        if (this.isRecording) return;
-        if (!this.armedTrackId) {
-          const t = this.addTrack();
-          this.armedTrackId = t.id;
-          ui.renderTracks();
-        }
-        const stream = await this.getMicStream();
-        this.micSource = this.ctx.createMediaStreamSource(stream);
-        this.monitorGain = this.ctx.createGain();
-        this.monitorGain.gain.value = this.monitorEnabled ? 0.6 : 0;
-        this.micSource.connect(this.monitorGain);
-        this.monitorGain.connect(this.masterGain);
-
-        const bufferSize = 2048;
-        this.scriptProcessor = this.ctx.createScriptProcessor(bufferSize, 1, 1);
-        this.recordChunks = [];
-        const engine = this;
-        this.scriptProcessor.onaudioprocess = function(e) {
-          const input = e.inputBuffer.getChannelData(0);
-          const copy = new Float32Array(input.length);
-          copy.set(input);
-          engine.recordChunks.push(copy);
-          const output = e.outputBuffer.getChannelData(0);
-          for (let i = 0; i < output.length; i++) output[i] = 0;
-        };
-        this.micSource.connect(this.scriptProcessor);
-        this.scriptProcessor.connect(this.ctx.destination);
-
-        this.startTime = this.ctx.currentTime;
-        this.isPlaying = true;
-        this.isRecording = true;
-        const anySolo = this.tracks.some(t => t.solo);
-        this.activeSources = [];
-        this.tracks.forEach(track => {
-          if (track.id === this.armedTrackId) return;
-          if (!track.buffer || track.muted) return;
-          if (anySolo && !track.solo) return;
-          const chain = this.buildTrackChain(track, this.ctx, this.masterGain, this.reverbConvolver, this.echoDelay);
-          chain.src.start(0);
-          this.activeSources.push({ ...chain, trackId: track.id });
-        });
-        if (this.metronomeOn) this.scheduleMetronome();
-      }
-
-      stopRecording() {
-        if (!this.isRecording) return;
-        if (this.scriptProcessor) { this.scriptProcessor.disconnect(); this.scriptProcessor = null; }
-        if (this.micSource) { this.micSource.disconnect(); this.micSource = null; }
-        if (this.monitorGain) { this.monitorGain.disconnect(); this.monitorGain = null; }
-        this.stopPlayback();
-        const totalLength = this.recordChunks.reduce((s, c) => s + c.length, 0);
-        if (totalLength > 0) {
-          const buffer = this.ctx.createBuffer(1, totalLength, this.ctx.sampleRate);
-          const data = buffer.getChannelData(0);
-          let offset = 0;
-          this.recordChunks.forEach(chunk => { data.set(chunk, offset); offset += chunk.length; });
-          const track = this.tracks.find(t => t.id === this.armedTrackId);
-          if (track) {
-            track.buffer = buffer;
-            track.peaks = computePeaks(buffer, 1200);
-          }
-        }
-        this.recordChunks = [];
-        this.isRecording = false;
-        this.armedTrackId = null;
-      }
-
       updateTrackParams(id) {
         const track = this.tracks.find(t => t.id === id);
         if (!track) return;
@@ -840,9 +1002,16 @@
         const audible = !track.muted && (!anySolo || track.solo);
         const active = this.activeSources.find(s => s.trackId === id);
         if (active) {
-          active.gain.gain.value = audible ? track.volume : 0;
+          const normGain = track.normalize && track.peak > 0 ? (0.99 / track.peak) : 1;
+          active.gain.gain.value = audible ? track.volume * normGain : 0;
           active.reverbSend.gain.value = track.reverbSend;
           active.echoSend.gain.value = track.echoSend;
+          if (active.hpFilter) {
+            active.hpFilter.frequency.value = track.noiseFilter > 0 ? 20 + Math.pow(track.noiseFilter, 3) * 500 : 20;
+          }
+          if (active.lpFilter) {
+            active.lpFilter.frequency.value = track.noiseFilter > 0 ? 20000 - Math.pow(track.noiseFilter, 2) * 12000 : 20000;
+          }
         }
       }
 
@@ -867,16 +1036,17 @@
       }
 
       playClick(time, accent) {
+        if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.frequency.value = accent ? 1400 : 900;
+        osc.frequency.value = accent ? 1500 : 800;
         gain.gain.setValueAtTime(0, time);
-        gain.gain.linearRampToValueAtTime(accent ? 0.25 : 0.15, time + 0.001);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+        gain.gain.linearRampToValueAtTime(accent ? 0.3 : 0.15, time + 0.001);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
         osc.connect(gain);
         gain.connect(this.masterGain);
         osc.start(time);
-        osc.stop(time + 0.06);
+        osc.stop(time + 0.08);
       }
 
       getPlayheadPosition() {
@@ -1059,6 +1229,7 @@
                     </button>
                     <button class="icon-btn mute ${track.muted ? 'active' : ''}" data-action="mute" title="Mute">M</button>
                     <button class="icon-btn solo ${track.solo ? 'active' : ''}" data-action="solo" title="Solo">S</button>
+                    <button class="icon-btn nrm ${track.normalize ? 'active' : ''}" data-action="normalize" title="Normalizza Volume">NRM</button>
                     <button class="icon-btn delete" data-action="delete" title="Elimina">
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>
                     </button>
@@ -1067,6 +1238,11 @@
                     <label>VOL</label>
                     <input type="range" min="0" max="1" step="0.01" value="${track.volume}" data-action="volume">
                     <span class="param-value">${Math.round(track.volume * 100)}</span>
+                  </div>
+                  <div class="param-row">
+                    <label>NR</label>
+                    <input type="range" min="0" max="1" step="0.01" value="${track.noiseFilter}" data-action="noise">
+                    <span class="param-value">${Math.round(track.noiseFilter * 100)}</span>
                   </div>
                   <div class="param-row">
                     <label>REV</label>
@@ -1109,7 +1285,7 @@
           } else if (action === 'arm') {
             el.addEventListener('click', async () => {
               await audioEngine.init();
-              if (audioEngine.isRecording) {
+              if (audioEngine.isRecording || audioEngine.isCountingDown) {
                 showToast('Ferma la registrazione corrente prima di armare un\'altra traccia', 'error');
                 return;
               }
@@ -1129,6 +1305,12 @@
               audioEngine.tracks.forEach(t => audioEngine.updateTrackParams(t.id));
               this.renderTracks();
             });
+          } else if (action === 'normalize') {
+            el.addEventListener('click', () => {
+              track.normalize = !track.normalize;
+              audioEngine.updateTrackParams(track.id);
+              this.renderTracks();
+            });
           } else if (action === 'delete') {
             el.addEventListener('click', () => {
               if (audioEngine.isRecording && audioEngine.armedTrackId === track.id) {
@@ -1139,12 +1321,13 @@
               this.renderTracks();
               showToast('Traccia eliminata', 'info');
             });
-          } else if (action === 'volume' || action === 'reverb' || action === 'echo') {
+          } else if (action === 'volume' || action === 'reverb' || action === 'echo' || action === 'noise') {
             el.addEventListener('input', () => {
               const v = parseFloat(el.value);
               if (action === 'volume') track.volume = v;
               else if (action === 'reverb') track.reverbSend = v;
               else if (action === 'echo') track.echoSend = v;
+              else if (action === 'noise') track.noiseFilter = v;
               audioEngine.updateTrackParams(track.id);
               const valSpan = el.parentElement.querySelector('.param-value');
               if (valSpan) valSpan.textContent = Math.round(v * 100);
@@ -1165,6 +1348,7 @@
                 const audioBuffer = await audioEngine.ctx.decodeAudioData(arrayBuffer);
                 track.buffer = audioBuffer;
                 track.peaks = computePeaks(audioBuffer, 1200);
+                track.peak = findPeak(audioBuffer);
                 this.renderTracks();
                 showToast(`"${file.name}" importato`, 'success');
               } catch (err) {
@@ -1258,6 +1442,9 @@
         if (audioEngine.isRecording) {
           dot.className = 'status-dot rec';
           text.textContent = 'Registrazione';
+        } else if (audioEngine.isCountingDown) {
+          dot.className = 'status-dot countdown';
+          text.textContent = 'Pre-Record';
         } else if (audioEngine.isPlaying) {
           dot.className = 'status-dot active';
           text.textContent = 'In riproduzione';
@@ -1310,27 +1497,40 @@
       });
 
       document.getElementById('recordBtn').addEventListener('click', async () => {
-        try {
-          if (audioEngine.isRecording) {
-            audioEngine.stopRecording();
-            document.getElementById('recordBtn').classList.remove('recording');
-            ui.renderTracks();
-            showToast('Registrazione completata', 'success');
-          } else {
-            if (audioEngine.isPlaying) audioEngine.stopPlayback();
-            await audioEngine.startRecording();
-            document.getElementById('recordBtn').classList.add('recording');
-            ui.renderTracks();
+        const btn = document.getElementById('recordBtn');
+        if (audioEngine.isRecording || audioEngine.isCountingDown) {
+          if (audioEngine.isCountingDown) {
+            audioEngine.cancelCountdown();
+            showToast('Countdown annullato', 'info');
           }
-        } catch (err) {
-          showToast('Errore: ' + err.message, 'error');
-          document.getElementById('recordBtn').classList.remove('recording');
+          audioEngine.stopRecording();
+          btn.classList.remove('recording');
+          ui.renderTracks();
+          if (audioEngine.tracks.some(t => t.buffer)) {
+            showToast('Registrazione completata', 'success');
+          }
+        } else {
+          if (audioEngine.isPlaying) audioEngine.stopPlayback();
+          btn.disabled = true;
+          try {
+            await audioEngine.startRecording();
+            btn.classList.add('recording');
+            ui.renderTracks();
+            if (!audioEngine.isRecording) {
+              showToast('Registrazione annullata', 'info');
+            }
+          } catch (err) {
+            showToast('Errore: ' + err.message, 'error');
+            btn.classList.remove('recording');
+          } finally {
+            btn.disabled = false;
+          }
         }
       });
 
       document.getElementById('playBtn').addEventListener('click', async () => {
         try {
-          if (audioEngine.isRecording) return;
+          if (audioEngine.isRecording || audioEngine.isCountingDown) return;
           if (audioEngine.isPlaying) {
             audioEngine.stopPlayback();
             ui.renderTracks();
@@ -1343,10 +1543,16 @@
       });
 
       document.getElementById('stopBtn').addEventListener('click', () => {
+        if (audioEngine.isCountingDown) {
+          audioEngine.cancelCountdown();
+          document.getElementById('recordBtn').classList.remove('recording');
+          showToast('Countdown annullato', 'info');
+        }
         if (audioEngine.isRecording) {
           audioEngine.stopRecording();
           document.getElementById('recordBtn').classList.remove('recording');
           ui.renderTracks();
+          showToast('Registrazione completata', 'success');
         } else if (audioEngine.isPlaying) {
           audioEngine.stopPlayback();
           ui.renderTracks();
